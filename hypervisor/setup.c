@@ -118,6 +118,18 @@ static void cpu_init(struct per_cpu *cpu_data)
 	if (err)
 		goto failed;
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	err = paging_create_hvpt_link(&cpu_data->pg_structs, PGP_RO_BUF_VIRT);
+	if (err) {
+		printk("error in mapping pgp ro buf hvpt link");
+		goto failed;
+	}
+	else
+	{
+		printk("sucess in mapping pgp ro buf hvpt link");
+	}
+#endif
+
 	if (CON_IS_MMIO(system_config->debug_console.flags)) {
 		err = paging_create_hvpt_link(&cpu_data->pg_structs,
 			(unsigned long)hypervisor_header.debug_console_base);
@@ -190,7 +202,13 @@ static void init_late(void)
 		if (error)
 			return;
 	}
-
+	
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+    // paging_set_flag(arch_get_pg_struct(&(root_cell.arch)), PGP_RO_BUF_BASE, PGP_ROBUF_SIZE,
+    //         PAGING_NON_COHERENT | PAGING_HUGE, GPHYS2PHYS_WRITE_MASK, GPHYS2PHYS_WRITE_PROTECTION_VALUE);
+	paging_set_flag(arch_get_pg_struct(&(root_cell.arch)), PGP_RO_BUF_BASE, PGP_ROBUF_SIZE,
+            PAGING_NON_COHERENT | PAGING_HUGE, GPHYS2PHYS_WRITE_MASK, GPHYS2PHYS_WRITE_PROTECTION_VALUE);
+#endif
 	config_commit(&root_cell);
 
 	paging_dump_stats("after late setup");
@@ -202,6 +220,7 @@ static void init_late(void)
  */
 int entry(unsigned int cpu_id, struct per_cpu *cpu_data)
 {
+	printk("[PGP]: %d cpu get in entry...\n",cpu_id);
 	static volatile bool activate;
 	bool master = false;
 

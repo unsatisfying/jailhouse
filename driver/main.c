@@ -86,6 +86,10 @@ MODULE_FIRMWARE(JAILHOUSE_FW_NAME);
 #endif
 MODULE_VERSION(JAILHOUSE_VERSION);
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+extern volatile bool pgp_hyp_init;
+#endif
+
 extern char __hyp_stub_vectors[];
 
 struct console_state {
@@ -595,6 +599,11 @@ static int jailhouse_cmd_enable(struct jailhouse_system __user *arg)
 	while (atomic_read(&call_done) != num_online_cpus())
 		cpu_relax();
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	WRITE_ONCE(pgp_hyp_init, true);
+	printk("[PGP] HYPERCALL INIT FINISH");
+#endif
+
 	preempt_enable();
 
 	if (error_code) {
@@ -700,6 +709,8 @@ static int jailhouse_cmd_disable(void)
 
 	preempt_disable();
 
+	WRITE_ONCE(pgp_hyp_init, false);
+	
 	if (num_online_cpus() != cpumask_weight(&root_cell->cpus_assigned)) {
 		/*
 		 * Not all assigned CPUs are currently online. If we disable

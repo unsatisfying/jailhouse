@@ -548,6 +548,87 @@ int paging_create_hvpt_link(const struct paging_structures *pg_dest_structs,
 	return 0;
 }
 
+#if defined(CONFIG_TEXT_SECTION_PROTECTION) || defined(CONFIG_PAGE_TABLE_PROTECTION)
+static int pte_set_flag(pt_entry_t pte, unsigned long mask, unsigned long value)
+{
+    *pte = ((*pte) & (~mask)) | value;
+    return 0;
+}
+
+/**
+ * Create a top-level link to the common hypervisor page table.
+ * @param pg_dest_structs      Descriptor of the target paging structures.
+ * @param virt                 Virtual start address of the linked region.
+ * @param size                 Size of the memory region.
+ * @param paging_flags Paging flags.
+ * @param mask                 Bit mask of bits to be set.
+ * @param value                        Value of bits to be set. 
+ *
+ * @return 0 on success, negative error code otherwise.
+ */
+int paging_set_flag(const struct paging_structures *pg_structs,
+                  unsigned long virt, unsigned long size,
+                  unsigned long paging_flags, unsigned long mask, unsigned long value)
+{
+    size = PAGE_ALIGN(size);
+
+    while (size > 0) {
+        const struct paging *paging = pg_structs->root_paging;
+        page_table_t pt;
+        unsigned long page_size;
+        pt_entry_t pte;
+        int err;
+
+        /* walk down the page table, saving intermediate tables */
+        pt = pg_structs->root_table;
+        while (1) {
+            pte = paging->get_entry(pt, virt);
+            if (!paging->entry_valid(pte, PAGE_PRESENT_FLAGS))              
+                break;
+            if (paging->get_phys(pte, virt) != INVALID_PHYS_ADDR) {
+                    unsigned long page_start;
+
+                /*
+                 * If the region to be unmapped doesn't fully
+                 * cover the hugepage, the hugepage will need to
+                 * be split.
+                 */
+                page_size = paging->page_size ?
+                        paging->page_size : PAGE_SIZE;
+                page_start = virt & ~(page_size-1);
+
+                if (virt <= page_start &&
+                    virt + size >= page_start + page_size)
+                        break;
+
+                err = split_hugepage(pg_structs->hv_paging,
+                            paging, pte, virt, paging_flags);
+                if (err)
+                    return err;
+            }
+            pt = paging_phys2hvirt(paging->get_next_pt(pte));
+            paging++;
+        }
+        /* advance by page size of current level paging */
+        page_size = paging->page_size ? paging->page_size : PAGE_SIZE;
+
+        /* find the pte, change the flag and flush the cache */
+        pte_set_flag(pte, mask, value);
+
+        flush_pt_entry(pte, paging_flags);
+
+        if (pg_structs->hv_paging)
+            arch_paging_flush_page_tlbs(virt);
+
+        if (page_size > size)                                                   
+			break;
+        virt += page_size;
+        size -= page_size;
+    }
+    return 0;
+}
+#endif
+
 /**
  * Map guest (cell) pages into the hypervisor address space.
  * @param pg_structs	Descriptor of the guest paging structures if @c gaddr
@@ -671,6 +752,22 @@ int paging_init(void)
 	if (err)
 		return err;
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+    err = paging_create(&hv_paging_structs,
+                		PGP_RO_BUF_BASE,
+                    	PGP_ROBUF_SIZE,
+                    	PGP_RO_BUF_VIRT,
+                    	PAGE_DEFAULT_FLAGS,
+                    	PAGING_NON_COHERENT | PAGING_HUGE);
+    if (err) {
+        printk("error in create mapping for pgp ro buf\n");
+        return err;
+    }
+	else
+	{
+		printk("create mapping for pgp ro buf to hypervisor!\n");
+	}
+#endif
 	/*
 	 * Make sure any permission changes on the per_cpu region can be
 	 * performed without allocations of page table pages.

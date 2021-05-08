@@ -147,3 +147,10 @@ void arm_paging_vcpu_init(struct paging_structures *pg_structs)
 	 */
 	arm_paging_vcpu_flush_tlbs();
 }
+
+#if defined(CONFIG_TEXT_SECTION_PROTECTION) || defined(CONFIG_PAGE_TABLE_PROTECTION)
+struct paging_structures *arch_get_pg_struct(struct arch_cell *arch)
+{
+    return &arch->mm;
+}
+#endif

@@ -284,6 +284,23 @@ int paging_map_all_per_cpu(unsigned int cpu, bool enable);
 
 int paging_init(void);
 
+#if defined(CONFIG_TEXT_SECTION_PROTECTION) || defined(CONFIG_PAGE_TABLE_PROTECTION)
+/**
+ * Create a top-level link to the common hypervisor page table.
+ * @param pg_dest_structs      Descriptor of the target paging structures.
+ * @param virt                 Virtual start address of the linked region.
+ * @param size                 Size of the memory region.
+ * @param paging_flags Paging flags.
+ * @param mask                 Bit mask of bits to be set.
+ * @param value                        Value of bits to be set. 
+ *
+ * @return 0 on success, negative error code otherwise.
+ */
+int paging_set_flag(const struct paging_structures *pg_structs, 
+                                       unsigned long virt, unsigned long size, 
+                                       unsigned long paging_flags, unsigned long mask, unsigned long value);
+#endif
+
 /**
  * Perform architecture-specific initialization of the page management
  * subsystem.

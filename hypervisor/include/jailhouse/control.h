@@ -132,6 +132,29 @@ void shutdown(void);
 void __attribute__((noreturn)) panic_stop(void);
 void panic_park(void);
 
+#if defined(CONFIG_TEXT_SECTION_PROTECTION) || defined(CONFIG_PAGE_TABLE_PROTECTION)
+struct paging_structures *arch_get_pg_struct(struct arch_cell *arch);
+#endif
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+
+#define PGP_RO_BUF_BASE 0x1fb084000
+#define PGP_ROBUF_SIZE 0x4000000
+#define PGP_RO_BUF_VIRT 0x0000ff81fb084000UL
+
+unsigned long vpatohva(unsigned long addr);
+/**
+ * Mark guest physical address as Privilege eXeucte Never(PXN).
+ * @param cpu_data     Data structure of the calling CPU.
+ * @param addr         address of page table entry to be written
+ * @param value                address of page table entry to be written
+ *
+ * @return 0 on success, negative error code otherwise.
+ */
+int pgp_write_long(struct per_cpu *cpu_data, unsigned long addr, unsigned long value);
+int pgp_memset(struct per_cpu *cpu_data, unsigned long dst, unsigned long c, int len);
+int pgp_memcpy(struct per_cpu *cpu_data, unsigned long dst, unsigned long src, int len);
+#endif
+
 /**
  * Resume a suspended remote CPU.
  * @param cpu_id	ID of the target CPU.
