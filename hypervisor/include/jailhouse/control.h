@@ -137,10 +137,10 @@ struct paging_structures *arch_get_pg_struct(struct arch_cell *arch);
 #endif
 #ifdef CONFIG_PAGE_TABLE_PROTECTION
 
+#define IPATOHVA_OFFSET 0xffffff0000000000UL
 #define PGP_RO_BUF_BASE 0x1f7084000
 #define PGP_ROBUF_SIZE 0x8000000
-#define PGP_RO_BUF_VIRT 0x0000ff81f7084000UL
-#define IPATOHVA_OFFSET 0xffffff0000000000UL
+#define PGP_RO_BUF_VIRT (0xffffff81f7084000UL - IPATOHVA_OFFSET)
 
 unsigned long ipatohva(unsigned long addr);
 /**
