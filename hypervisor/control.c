@@ -929,9 +929,9 @@ static int cpu_get_info(struct per_cpu *cpu_data, unsigned long cpu_id,
 
 #ifdef CONFIG_PAGE_TABLE_PROTECTION
 
-unsigned long vpatohva(unsigned long addr)
+unsigned long ipatohva(unsigned long addr)
 {
-	return addr&0x0000ffffffffffff;
+	return addr - IPATOHVA_OFFSET;
 }
 /**
  * Mark guest physical address as Privilege eXeucte Never(PXN).
@@ -943,7 +943,7 @@ unsigned long vpatohva(unsigned long addr)
  */
 int pgp_write_long(struct per_cpu *cpu_data, unsigned long addr, unsigned long value)
 {
-	addr = vpatohva(addr);
+	addr = ipatohva(addr);
     unsigned long *ptr = (unsigned long *)addr;
     if((addr & PGP_ADDR_MASK) != 0){
         printk("The addr of pte entry is not aligned");
@@ -957,7 +957,7 @@ int pgp_write_long(struct per_cpu *cpu_data, unsigned long addr, unsigned long v
 
 int pgp_memset(struct per_cpu *cpu_data, unsigned long dst, unsigned long c, int len)
 {
-	dst = vpatohva(dst);
+	dst = ipatohva(dst);
 	//printk("pgp_memset start dst: 0x%016lx, c: %lx, len %d\n",dst, c, len);
     __builtin_memset((void *)dst, (int)c, len);
 	//printk("pgp_memset end\n");
