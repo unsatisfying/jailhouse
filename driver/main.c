@@ -374,7 +374,7 @@ console_free_out:
 #ifdef CONFIG_PAGE_TABLE_PROTECTION
 static void disable_hypercall(void *info)
 {
-	hypercall(JAILHOUSE_HC_WRITE_PROTECTION_CLEAR， 0， 0);
+	jailhouse_call_arg2(JAILHOUSE_HC_WRITE_PROTECTION_CLEAR, 0, 0);
 	atomic_inc(&call_done);
 }
 #endif
