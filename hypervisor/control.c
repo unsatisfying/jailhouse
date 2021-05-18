@@ -1022,6 +1022,10 @@ long hypercall(unsigned long code, unsigned long arg1, unsigned long arg2)
     case JAILHOUSE_HC_WRITE_LONG:
 //		printk("jailhouse hypercall WRITE LONG ,code=0x%016lx,arg1=0x%016lx,arg2=0X%016lx\n",code,arg1,arg2);
         return pgp_write_long(cpu_data, arg1, arg2);
+		case JAILHOUSE_HC_WRITE_PROTECTION_CLEAR:
+				paging_set_flag(arch_get_pg_struct(&(root_cell.arch)), PGP_RO_BUF_BASE, PGP_ROBUF_SIZE,
+							PAGING_NON_COHERENT | PAGING_HUGE, GPHYS2PHYS_WRITE_MASK, GPHYS2PHYS_WRITE_MASK);
+				return 0;
 #endif
     default:
 #ifdef CONFIG_PAGE_TABLE_PROTECTION
