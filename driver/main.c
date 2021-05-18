@@ -742,14 +742,17 @@ static int jailhouse_cmd_disable(void)
 	while (atomic_read(&call_done) != num_online_cpus())
 		cpu_relax();
 	printk("[PGP] HYPERCALL DISABLED");
-
-	WRITE_ONCE(pgp_hyp_init, false);
 #endif
+
 	atomic_set(&call_done, 0);
 	/* See jailhouse_cmd_enable while wait=true does not work. */
 	on_each_cpu(leave_hypervisor, NULL, 0);
 	while (atomic_read(&call_done) != num_online_cpus())
 		cpu_relax();
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	WRITE_ONCE(pgp_hyp_init, false);
+#endif
 
 	preempt_enable();
 
