@@ -270,6 +270,11 @@ static void enter_hypervisor(void *info)
 	}
 #endif
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+    WRITE_ONCE(pgp_hyp_init, true);
+	printk("[PGP] HYPERCALL INIT FINISH ON CPU %d", cpu);
+#endif
+
 	atomic_inc(&call_done);
 }
 
@@ -365,6 +370,14 @@ console_free_out:
 	kfree(console);
 	return ret;
 }
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+static void disable_hypercall(void *info)
+{
+	WRITE_ONCE(pgp_hyp_init, false);
+	atomic_inc(&call_done);
+}
+#endif
 
 /* See Documentation/bootstrap-interface.txt */
 static int jailhouse_cmd_enable(struct jailhouse_system __user *arg)
@@ -599,11 +612,6 @@ static int jailhouse_cmd_enable(struct jailhouse_system __user *arg)
 	while (atomic_read(&call_done) != num_online_cpus())
 		cpu_relax();
 
-#ifdef CONFIG_PAGE_TABLE_PROTECTION
-	WRITE_ONCE(pgp_hyp_init, true);
-	printk("[PGP] HYPERCALL INIT FINISH");
-#endif
-
 	preempt_enable();
 
 	if (error_code) {
@@ -709,8 +717,6 @@ static int jailhouse_cmd_disable(void)
 
 	preempt_disable();
 
-	WRITE_ONCE(pgp_hyp_init, false);
-	
 	if (num_online_cpus() != cpumask_weight(&root_cell->cpus_assigned)) {
 		/*
 		 * Not all assigned CPUs are currently online. If we disable
@@ -730,7 +736,13 @@ static int jailhouse_cmd_disable(void)
 	 */
 	*__boot_cpu_mode_sym &= ~BOOT_CPU_MODE_MISMATCH;
 #endif
-
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	atomic_set(&call_done, 0);
+	on_each_cpu(disable_hypercall, NULL, 0);
+	while (atomic_read(&call_done) != num_online_cpus())
+		cpu_relax();
+	printk("[PGP] HYPERCALL DISABLED");
+#endif
 	atomic_set(&call_done, 0);
 	/* See jailhouse_cmd_enable while wait=true does not work. */
 	on_each_cpu(leave_hypervisor, NULL, 0);
