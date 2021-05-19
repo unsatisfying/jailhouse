@@ -625,6 +625,7 @@ int paging_set_flag(const struct paging_structures *pg_structs,
         virt += page_size;
         size -= page_size;
     }
+	arm_paging_vcpu_flush_tlbs();
     return 0;
 }
 #endif

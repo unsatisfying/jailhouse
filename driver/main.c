@@ -270,6 +270,11 @@ static void enter_hypervisor(void *info)
 	}
 #endif
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+    WRITE_ONCE(pgp_hyp_init, true);
+	printk("[PGP] HYPERCALL INIT FINISH ON CPU %d", cpu);
+#endif
+
 	atomic_inc(&call_done);
 }
 
@@ -599,11 +604,6 @@ static int jailhouse_cmd_enable(struct jailhouse_system __user *arg)
 	while (atomic_read(&call_done) != num_online_cpus())
 		cpu_relax();
 
-#ifdef CONFIG_PAGE_TABLE_PROTECTION
-	WRITE_ONCE(pgp_hyp_init, true);
-	printk("[PGP] HYPERCALL INIT FINISH");
-#endif
-
 	preempt_enable();
 
 	if (error_code) {
@@ -736,7 +736,6 @@ static int jailhouse_cmd_disable(void)
 	 */
 	*__boot_cpu_mode_sym &= ~BOOT_CPU_MODE_MISMATCH;
 #endif
-
 #ifdef CONFIG_PAGE_TABLE_PROTECTION
 	atomic_set(&call_done, 0);
 	on_each_cpu(disable_hypercall, NULL, 0);
