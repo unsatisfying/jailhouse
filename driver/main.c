@@ -686,11 +686,19 @@ static void leave_hypervisor(void *info)
 
 	atomic_inc(&call_done);
 }
-
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+static void disable_hypercall(void *info)
+{
+	int err;
+	err=jailhouse_call(JAILHOUSE_HC_WRITE_PROTECTION_CLEAR);
+	if (err)
+		error_code = err;
+	atomic_inc(&call_done);
+}
+#endif
 static int jailhouse_cmd_disable(void)
 {
 	int err;
-
 	if (mutex_lock_interruptible(&jailhouse_lock) != 0)
 		return -EINTR;
 
@@ -708,8 +716,6 @@ static int jailhouse_cmd_disable(void)
 	error_code = 0;
 
 	preempt_disable();
-
-	WRITE_ONCE(pgp_hyp_init, false);
 	
 	if (num_online_cpus() != cpumask_weight(&root_cell->cpus_assigned)) {
 		/*
@@ -731,6 +737,14 @@ static int jailhouse_cmd_disable(void)
 	*__boot_cpu_mode_sym &= ~BOOT_CPU_MODE_MISMATCH;
 #endif
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	atomic_set(&call_done, 0);
+	on_each_cpu(disable_hypercall, NULL, 0);
+	while (atomic_read(&call_done) != num_online_cpus())
+		cpu_relax();
+	printk("######[PGP]: HYPERCALL DISABLED######\n");
+	WRITE_ONCE(pgp_hyp_init, false);
+#endif
 	atomic_set(&call_done, 0);
 	/* See jailhouse_cmd_enable while wait=true does not work. */
 	on_each_cpu(leave_hypervisor, NULL, 0);
